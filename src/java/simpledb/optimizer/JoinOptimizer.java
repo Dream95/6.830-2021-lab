@@ -1,14 +1,13 @@
 package simpledb.optimizer;
 
-import simpledb.common.Database;
 import simpledb.ParsingException;
+import simpledb.common.Database;
 import simpledb.execution.*;
-import simpledb.storage.TupleDesc;
-
-import java.util.*;
 
 import javax.swing.*;
-import javax.swing.tree.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import java.util.*;
 
 /**
  * The JoinOptimizer class is responsible for ordering a series of joins
@@ -130,7 +129,7 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return -1.0;
+            return cost1 + card1 * cost2 + card1 * card2;
         }
     }
 
@@ -167,6 +166,7 @@ public class JoinOptimizer {
     }
 
     /**
+     * @see 2.2.4
      * Estimate the join cardinality of two tables.
      * */
     public static int estimateTableJoinCardinality(Predicate.Op joinOp,
@@ -175,8 +175,29 @@ public class JoinOptimizer {
                                                    boolean t2pkey, Map<String, TableStats> stats,
                                                    Map<String, Integer> tableAliasToId) {
         int card = 1;
+        switch (joinOp){
+            case EQUALS:
+                if (t1pkey){
+                    if (t2pkey){
+                        card = Math.min(card1,card2);
+                    }else {
+                        card=card2;
+                    }
+                }else if (t2pkey){
+                    card=card1;
+                }else{
+                    card=Math.max(card1,card2);
+                }
+                break;
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQ:
+            case LESS_THAN:
+            case LESS_THAN_OR_EQ:
+                 card= (int) (card1*card2*0.3);
+                 break;
+        }
         // some code goes here
-        return card <= 0 ? 1 : card;
+        return card;
     }
 
     /**
@@ -238,7 +259,25 @@ public class JoinOptimizer {
 
         // some code goes here
         //Replace the following
-        return joins;
+        PlanCache planCache = new PlanCache();
+        for (int i = 1; i <= joins.size(); i++) {
+            Set<Set<LogicalJoinNode>> subSets  = enumerateSubsets(joins,i);
+            for (Set<LogicalJoinNode> sets:subSets) {
+                CostCard bestCostCard = new CostCard();
+                bestCostCard.cost = Double.MAX_VALUE;
+                for (LogicalJoinNode joinNode : sets){
+                    CostCard costCard = this.computeCostAndCardOfSubplan(stats,filterSelectivities,joinNode,sets,bestCostCard.cost,planCache);
+                    if (costCard != null && costCard.cost < bestCostCard.cost) {
+                        bestCostCard = costCard;
+                    }
+                }
+                planCache.addPlan(sets,bestCostCard.cost,bestCostCard.card,bestCostCard.plan);
+            }
+        }
+        if (explain) {
+            printJoins(joins, planCache, stats, filterSelectivities);
+        }
+        return planCache.getOrder(new HashSet<>(joins));
     }
 
     // ===================== Private Methods =================================

@@ -1,7 +1,14 @@
 package simpledb.execution;
 
+import simpledb.common.DbException;
 import simpledb.common.Type;
+import simpledb.storage.Field;
+import simpledb.storage.IntField;
 import simpledb.storage.Tuple;
+import simpledb.storage.TupleDesc;
+import simpledb.transaction.TransactionAbortedException;
+
+import java.util.*;
 
 /**
  * Knows how to compute some aggregate over a set of StringFields.
@@ -9,6 +16,16 @@ import simpledb.storage.Tuple;
 public class StringAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
+
+    private final int gbfield;
+    private final Type gbfieldtype;
+    private final int afield;
+    private final Op what;
+
+    private final TupleDesc tupleDesc;
+
+    private final Map<Field, Integer> countMap = new HashMap();
+
 
     /**
      * Aggregate constructor
@@ -21,6 +38,18 @@ public class StringAggregator implements Aggregator {
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
+        // some code goes here
+        this.gbfield = gbfield;
+        this.gbfieldtype = gbfieldtype;
+        this.afield = afield;
+        this.what = what;
+
+        List<Type> typeAr = new ArrayList<>();
+        if (gbfieldtype != null) {
+            typeAr.add(gbfieldtype);
+        }
+        typeAr.add(Type.INT_TYPE);
+        this.tupleDesc = new TupleDesc(typeAr.toArray(new Type[0]));
     }
 
     /**
@@ -29,6 +58,9 @@ public class StringAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
+        boolean isGroup = this.gbfieldtype != null;
+        Field key = isGroup ? tup.getField(gbfield) : new IntField(0);
+        countMap.put(key, countMap.getOrDefault(key, 0) + 1);
     }
 
     /**
@@ -41,7 +73,54 @@ public class StringAggregator implements Aggregator {
      */
     public OpIterator iterator() {
         // some code goes here
-        throw new UnsupportedOperationException("please implement me for lab2");
+        return new StringAggregatorOpIterator();
     }
 
+    private class StringAggregatorOpIterator implements OpIterator{
+
+        private Iterator<Field> iterator;
+        @Override
+        public void open() throws DbException, TransactionAbortedException {
+            this.iterator = countMap.keySet().iterator();
+        }
+
+        @Override
+        public boolean hasNext() throws DbException, TransactionAbortedException {
+            return this.iterator.hasNext();
+        }
+
+        @Override
+        public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+            Tuple tuple = new Tuple(tupleDesc);
+            Field key = iterator.next();
+
+            int value = 0;
+            if (what == Op.COUNT) {
+                value = countMap.get(key);
+            }
+            if (gbfieldtype == null) {
+                tuple.setField(0, new IntField(value));
+            } else {
+                tuple.setField(0, key);
+                tuple.setField(1, new IntField(value));
+            }
+            return tuple;
+        }
+
+        @Override
+        public void rewind() throws DbException, TransactionAbortedException {
+            this.close();
+            this.open();
+        }
+
+        @Override
+        public TupleDesc getTupleDesc() {
+            return null;
+        }
+
+        @Override
+        public void close() {
+
+        }
+    }
 }

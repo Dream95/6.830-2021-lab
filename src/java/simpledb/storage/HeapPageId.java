@@ -3,6 +3,10 @@ package simpledb.storage;
 /** Unique identifier for HeapPage objects. */
 public class HeapPageId implements PageId {
 
+    private final int tableId;
+    private final int pgNo;
+
+
     /**
      * Constructor. Create a page id structure for a specific page of a
      * specific table.
@@ -12,12 +16,14 @@ public class HeapPageId implements PageId {
      */
     public HeapPageId(int tableId, int pgNo) {
         // some code goes here
+        this.tableId = tableId;
+        this.pgNo = pgNo;
     }
 
     /** @return the table associated with this PageId */
     public int getTableId() {
         // some code goes here
-        return 0;
+        return tableId;
     }
 
     /**
@@ -26,7 +32,7 @@ public class HeapPageId implements PageId {
      */
     public int getPageNumber() {
         // some code goes here
-        return 0;
+        return pgNo;
     }
 
     /**
@@ -37,7 +43,7 @@ public class HeapPageId implements PageId {
      */
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        return this.tableId*1000+this.pgNo;
     }
 
     /**
@@ -49,6 +55,10 @@ public class HeapPageId implements PageId {
      */
     public boolean equals(Object o) {
         // some code goes here
+        if (o instanceof HeapPageId){
+            HeapPageId h = (HeapPageId) o;
+            return  this.tableId == h.getTableId()&&this.pgNo==h.pgNo;
+        }
         return false;
     }
 
@@ -67,4 +77,11 @@ public class HeapPageId implements PageId {
         return data;
     }
 
+
+    @Override
+    public String toString() {
+        return "(tableId: " + tableId +
+                ", pgNo: " + pgNo +
+                ")";
+    }
 }

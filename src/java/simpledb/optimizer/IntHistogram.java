@@ -6,6 +6,12 @@ import simpledb.execution.Predicate;
  */
 public class IntHistogram {
 
+    private int num[];
+    private double block;
+    private int min;
+    private int max;
+    private int total;
+
     /**
      * Create a new IntHistogram.
      * 
@@ -24,6 +30,11 @@ public class IntHistogram {
      */
     public IntHistogram(int buckets, int min, int max) {
     	// some code goes here
+        buckets = Math.min(max-min+1,buckets);
+        num = new int[buckets];
+        this.block = (double) (max-min+1) / buckets;
+        this.min= min;
+        this.max=max;
     }
 
     /**
@@ -32,6 +43,8 @@ public class IntHistogram {
      */
     public void addValue(int v) {
     	// some code goes here
+        this.num[(int) ((v - min) / block)] += 1;
+        this.total += 1;
     }
 
     /**
@@ -45,6 +58,72 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
+        switch (op){
+            case EQUALS:
+                if (v<min | v>max){
+                    return 0;
+                }
+                return ((double) this.num[(int) ((v-min)/block)]) /total;
+            case GREATER_THAN:
+                if (v>=max){
+                    return 0;
+                }
+                if (v<min){
+                    return 1;
+                }
+                double thanNum = 0;
+                for (int i = (int) ((v-min)/block+1); i < num.length; i++) {
+                    thanNum+= num[i];
+                }
+                return thanNum/total;
+            case GREATER_THAN_OR_EQ:
+                if (v>max){
+                    return 0;
+                }
+                if (v<min){
+                    return 1;
+                }
+                double thanORNum = 0;
+                for (int i = (int) ((v-min)/block); i < num.length; i++) {
+                    thanORNum+= num[i];
+                }
+                return thanORNum/total;
+            case LESS_THAN:
+                if (v>max){
+                    return 1;
+                }
+                if (v<=min){
+                    return 0;
+                }
+                double lessNum = 0;
+                for (int i = 0; i < (v-min)/block; i++) {
+                    lessNum+= num[i];
+                }
+
+                return lessNum/total;
+            case LESS_THAN_OR_EQ:
+                if (v>=max){
+                    return 1;
+                }
+                if (v<min){
+                    return 0;
+                }
+
+                double lessOrNum = 0;
+                for (int i = 0; i <= (v-min)/block; i++) {
+                    lessOrNum+= num[i];
+                }
+
+                return lessOrNum/total;
+            case NOT_EQUALS:
+                if (v>max){
+                    return 1;
+                }
+                if (v<min){
+                    return 1;
+                }
+                return 1-(double) this.num[(int) ((v-min)/block)] /total;
+        }
 
     	// some code goes here
         return -1.0;
